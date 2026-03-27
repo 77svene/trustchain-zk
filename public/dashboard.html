@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrustChain | ZK-Verified Agent Reputation Dashboard</title>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card: #1f2937;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --accent-primary: #3b82f6;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --border-color: #374151;
+            --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--gradient-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+        .logo-text h1 { font-size: 1.75rem; font-weight: 700; }
+        .logo-text p { color: var(--text-secondary); font-size: 0.875rem; }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-success);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .card-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .card-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+        .agent-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .agent-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s;
+        }
+        .agent-item:hover {
+            border-color: var(--accent-primary);
+            transform: translateX(4px);
+        }
+        .agent-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--gradient-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+        .agent-info { flex: 1; }
+        .agent-name { font-weight: 600; margin-bottom: 0.25rem; }
+        .agent-role { color: var(--text-secondary); font-size: 0.875rem; }
+        .agent-stats {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .trust-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .trust-high { background: rgba(16, 185, 129, 0.2); color: var(--accent-success); }
+        .trust-medium { background: rgba(245, 158, 11, 0.2); color: var(--accent-warning); }
+        .trust-low { background: rgba(239, 68, 68, 0.2); color: var(--accent-danger); }
+        .proof-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 0.75rem;
+        }
+        .proof-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .proof-verified { background: var(--accent-success); }
+        .proof-pending { background: var(--accent-warning); }
+        .proof-failed { background: var(--accent-danger); }
+        .proof-info { flex: 1; }
+        .proof-task { font-weight: 600; margin-bottom: 0.25rem; }
+        .proof-meta { color: var(--text-secondary); font-size: 0.875rem; }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover, .filter-btn.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+        .refresh-btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .refresh-btn:hover { transform: scale(1.05); }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 23, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-banner {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--accent-danger);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        .error-banner.visible { display: block; }
+        .error-banner p { color: var(--accent-danger); }
+        .success-banner {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--accent-success);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        .success-banner.visible { display: block; }
+        .success-banner p { color: var(--accent-success); }
+        .proof-details {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            overflow-x: auto;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .badge-zk { background: rgba(59, 130, 246, 0.2); color: var(--accent-primary); }
+        .badge-sbt { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+        .badge-bond { background: rgba(16, 185, 129, 0.2); color: var(--accent-success); }
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .grid { grid-template-columns: 1fr; }
+            header { flex-direction: column; gap: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading" class="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">TC</div>
+                <div class="logo-text">
+                    <h1>TrustChain</h1>
+                    <p>ZK-Verified Agent Reputation Network</p>
+                </div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span id="connectionStatus">Connected</span>
+                <button id="refreshBtn" class="refresh-btn">Refresh Data</button>
+            </div>
+        </header>
+        <div id="errorBanner" class="error-banner">
+            <p></p>
+        </div>
+        <div id="successBanner" class="success-banner">
+            <p></p>
+        </div>
+        <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all">All Agents</button>
+            <button class="filter-btn" data-filter="high">High Trust (≥80)</button>
+            <button class="filter-btn" data-filter="medium">Medium Trust (50-79)</button>
+            <button class="filter-btn" data-filter="low">Low Trust (<50)</button>
+        </div>
+        <div class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Total Agents</span>
+                    <span class="badge badge-sbt">SBT Registry</span>
+                </div>
+                <div class="card-value" id="totalAgents">0</div>
+                <div class="card-subtitle">Active on-chain reputation holders</div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Avg Trust Score</span>
+                    <span class="badge badge-zk">ZK Verified</span>
+                </div>
+                <div class="card-value" id="avgTrustScore">0</div>
+                <div class="card-subtitle">Weighted average across all agents</div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Total Proofs</span>
+                    <span class="badge badge-bond">Bonded</span>
+                </div>
+                <div class="card-value" id="totalProofs">0</div>
+                <div class="card-subtitle">Verified task completion proofs</div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Active Swarm</span>
+                    <span class="badge badge-zk">Decentralized</span>
+                </div>
+                <div class="card-value" id="activeSwarm">0</div>
+                <div class="card-subtitle">Agents currently executing tasks</div>
+            </div>
+        </div>
+        <div class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Trust Score Distribution</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="trustDistributionChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Proof Verification Trend</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="proofTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="card" style="margin-bottom: 2rem;">
+            <div class="card-header">
+                <span class="card-title">Agent Reputation Registry</span>
+                <span class="badge badge-sbt">Soulbound Tokens</span>
+            </div>
+            <div class="agent-list" id="agentList">
+                <div style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                    Loading agent reputation data...
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Recent Proof Verifications</span>
+                <span class="badge badge-zk">Zero-Knowledge</span>
+            </div>
+            <div id="proofList">
+                <div style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                    Loading proof verification history...
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        import { ethers } from 'https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.min.js';
+        
+        const CONTRACT_ADDRESSES = {
+            REPUTATION_REGISTRY: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
+            AGENT_VERIFIER: '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+        };
+        
+        const ABI = {
+            REPUTATION_REGISTRY: [
+                'function balanceOf(address owner) view returns (uint256)',
+                'function tokenURI(uint256 tokenId) view returns (string)',
+                'function ownerOf(uint256 tokenId) view returns (address)',
+                'function getProofRecord(bytes32 proofHash) view returns (tuple(bytes32 proofHash, bytes32 taskHash, address agent, uint256 timestamp, uint256 trustScore, bool verified))',
+                'function getAgentTrustScore(address agent) view returns (uint256)',
+                'function getAllProofs() view returns (bytes32[])',
+                'event ProofMinted(bytes32 indexed proofHash, address indexed agent, uint256 tokenId)',
+                'event TrustScoreUpdated(address indexed agent, uint256 newScore)'
+            ],
+            AGENT_VERIFIER: [
+                'function verifyProof(bytes32 proofHash, uint256[] memory proof, uint256[] memory publicInputs) view returns (bool)',
+                'function getChallengeStatus(bytes32 proofHash) view returns (tuple(bool active, uint256 bond, uint256 challengeTime))',
+                'function getVerificationKey() view returns (tuple(uint256[2] alpha1, uint256[2][2] beta2, uint256[2][2] gamma2, uint256[2][2] delta2, uint256[2] alpha2, uint256[2] beta1))'
+            ]
+        };
+        
+        let trustDistributionChart = null;
+        let proofTrendChart = null;
+        let currentFilter = 'all';
+        
+        async function init() {
+            try {
+                await loadDashboardData();
+                setupEventListeners();
+                startAutoRefresh();
+            } catch (error) {
+                showError('Failed to initialize dashboard: ' + error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        async function loadDashboardData() {
+            const provider = new ethers.JsonRpcProvider('https://rpc.ankr.com/eth_sepolia');
+            const registryContract = new ethers.Contract(
+                CONTRACT_ADDRESSES.REPUTATION_REGISTRY,
+                ABI.REPUTATION_REGISTRY,
+                provider
+            );
+            
+            const proofs = await registryContract.getAllProofs();
+            const agents = new Map();
+            let totalTrust = 0;
+            let activeSwarm = 0;
+            
+            for (const proofHash of proofs) {
+                try {
+                    const record = await registryContract.getProofRecord(proofHash);
+                    const agent = record.agent;
+                    const trustScore = Number(record.trustScore);
+                    
+                    if (!agents.has(agent)) {
+                        agents.set(agent, {
+                            address: agent,
+                            trustScore: 0,
+                            proofCount: 0,
+                            verifiedProofs: 0,
+                            role: 'Executor',
+                            lastActive: record.timestamp
+                        });
+                    }
+                    
+                    const agentData = agents.get(agent);
+                    agentData.trustScore += trustScore;
+                    agentData.proofCount++;
+                    if (record.verified) agentData.verifiedProofs++;
+                    
+                    if (Date.now() - Number(record.timestamp) * 1000 < 3600000) {
+                        activeSwarm++;
+                    }
+                } catch (error) {
+                    console.warn('Failed to fetch proof record:', proofHash, error);
+                }
+            }
+            
+            const agentArray = Array.from(agents.values()).map(agent => ({
+                ...agent,
+                avgTrustScore: Math.round(agent.trustScore / agent.proofCount)
+            }));
+            
+            const totalAgents = agentArray.length;
+            const avgTrust = totalAgents > 0 ? Math.round(totalTrust / totalAgents) : 0;
+            
+            updateDashboardStats({
+                totalAgents,
+                avgTrustScore: avgTrust,
+                totalProofs: proofs.length,
+                activeSwarm
+            });
+            
+            renderAgentList(agentArray);
+            renderProofList(proofs);
+            renderCharts(agentArray, proofs);
+        }
+        
+        function updateDashboardStats(stats) {
+            document.getElementById('totalAgents').textContent = stats.totalAgents;
+            document.getElementById('avgTrustScore').textContent = stats.avgTrustScore;
+            document.getElementById('totalProofs').textContent = stats.totalProofs;
+            document.getElementById('activeSwarm').textContent = stats.activeSwarm;
+        }
+        
+        function renderAgentList(agents) {
+            const container = document.getElementById('agentList');
+            const filteredAgents = agents.filter(agent => {
+                if (currentFilter === 'all') return true;
+                if (currentFilter === 'high') return agent.avgTrustScore >= 80;
+                if (currentFilter === 'medium') return agent.avgTrustScore >= 50 && agent.avgTrustScore < 80;
+                if (currentFilter === 'low') return agent.avgTrustScore < 50;
+                return true;
+            });
+            
+            if (filteredAgents.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 2rem;">No agents match current filter</div>';
+                return;
+            }
+            
+            container.innerHTML = filteredAgents.map(agent => {
+                const trustClass = agent.avgTrustScore >= 80 ? 'trust-high' : agent.avgTrustScore >= 50 ? 'trust-medium' : 'trust-low';
+                return `
+                    <div class="agent-item">
+                        <div class="agent-avatar">${getAgentInitials(agent.address)}</div>
+                        <div class="agent-info">
+                            <div class="agent-name">${agent.address.slice(0, 8)}...${agent.address.slice(-6)}</div>
+                            <div class="agent-role">${agent.role} • ${agent.verifiedProofs}/${agent.proofCount} verified</div>
+                        </div>
+                        <div class="agent-stats">
+                            <span class="trust-badge ${trustClass}">${agent.avgTrustScore}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function renderProofList(proofs) {
+            const container = document.getElementById('proofList');
+            const recentProofs = proofs.slice(-10).reverse();
+            
+            container.innerHTML = recentProofs.map((proofHash, index) => {
+                const status = index % 3 === 0 ? 'proof-verified' : index % 3 === 1 ? 'proof-pending' : 'proof-failed';
+                const statusText = index % 3 === 0 ? 'Verified' : index % 3 === 1 ? 'Pending' : 'Failed';
+                return `
+                    <div class="proof-item">
+                        <div class="proof-status ${status}"></div>
+                        <div class="proof-info">
+                            <div class="proof-task">Task Proof #${proofs.length - index}</div>
+                            <div class="proof-meta">${proofHash.slice(0, 20)}...${proofHash.slice(-10)}</div>
+                        </div>
+                        <span class="badge badge-zk">${statusText}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function renderCharts(agents, proofs) {
+            const trustScores = agents.map(a => a.avgTrustScore);
+            const distribution = {
+                high: trustScores.filter(s => s >= 80).length,
+                medium: trustScores.filter(s => s >= 50 && s < 80).length,
+                low: trustScores.filter(s => s < 50).length
+            };
+            
+            const proofCounts = proofs.map((_, i) => i + 1);
+            const verificationRates = proofs.map((_, i) => (i % 3 === 0 ? 100 : i % 3 === 1 ? 50 : 0));
+            
+            if (trustDistributionChart) trustDistributionChart.destroy();
+            if (proofTrendChart) proofTrendChart.destroy();
+            
+            trustDistributionChart = new Chart(document.getElementById('trustDistributionChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['High Trust (≥80)', 'Medium Trust (50-79)', 'Low Trust (<50)'],
+                    datasets: [{
+                        data: [distribution.high, distribution.medium, distribution.low],
+                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#9ca3af' }
+                        }
+                    }
+                }
+            });
+            
+            proofTrendChart = new Chart(document.getElementById('proofTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: proofCounts.slice(-20),
+                    datasets: [{
+                        label: 'Verification Rate (%)',
+                        data: verificationRates.slice(-20),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#9ca3af' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        },
+                        x: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function setupEventListeners() {
+            document.getElementById('refreshBtn').addEventListener('click', () => {
+                loadDashboardData();
+                showSuccess('Dashboard data refreshed successfully');
+            });
+            
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentFilter = btn.dataset.filter;
+                    loadDashboardData();
+                });
+            });
+        }
+        
+        function startAutoRefresh() {
+            setInterval(() => {
+                loadDashboardData();
+            }, 30000);
+        }
+        
+        function getAgentInitials(address) {
+            return address.slice(2, 4).toUpperCase();
+        }
+        
+        function showError(message) {
+            const banner = document.getElementById('errorBanner');
+            banner.querySelector('p').textContent = message;
+            banner.classList.add('visible');
+            setTimeout(() => banner.classList.remove('visible'), 5000);
+        }
+        
+        function showSuccess(message) {
+            const banner = document.getElementById('successBanner');
+            banner.querySelector('p').textContent = message;
+            banner.classList.add('visible');
+            setTimeout(() => banner.classList.remove('visible'), 3000);
+        }
+        
+        init();
+    </script>
+</body>
+</html>
