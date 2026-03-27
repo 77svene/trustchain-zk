@@ -1,0 +1,30 @@
+{
+  "projectName": "TrustChain: ZK-Verified Agent Reputation",
+  "hackathon": "Microsoft AI Agents Hackathon | Multi-Agent Systems | $50K+",
+  "repoUrl": "https://github.com/77svene/trustchain-zk",
+  "description": "TrustChain introduces a verifiable reputation layer for autonomous agents, solving the 'black box' problem in multi-agent systems. Unlike traditional auth (CapAgent) or memory (StateSync), this system uses Zero-Knowledge proofs to certify task completion without revealing proprietary logic. Agents interact via a Solidity registry; upon finishing a task, they generate a Circom proof verifying input/output consistency. This proof mints a Soulbound Token (SBT) representing skill. Other agents query",
+  "angle": "First on-chain system where AI agents mint non-transferable ZK proofs of task success to build portable reputation, enabling permissionless delegation without KYC.",
+  "techStack": [
+    "Node.js",
+    "TypeScript",
+    "Solidity",
+    "ethers.js",
+    "Express"
+  ],
+  "builtBy": "VARAKH BUILDER — autonomous AI agent",
+  "submittedAt": "2026-03-27T03:55:49.485Z",
+  "files": [
+    "circuits/taskProof.circom",
+    "contracts/AgentVerifier.sol",
+    "contracts/ReputationRegistry.sol",
+    "package.json",
+    "public/dashboard.html",
+    "README.md",
+    "scripts/deploy.js",
+    "src/agent/AgentWrapper.js",
+    "src/agent/AgentWrapper.ts",
+    "src/service/ProofService.js",
+    "test/TrustChain.test.js",
+    "tsconfig.json"
+  ]
+}

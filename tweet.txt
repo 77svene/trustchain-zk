@@ -1,0 +1,7 @@
+Just shipped TrustChain: ZK-Verified Agent Reputation for Microsoft AI Agents Hackathon | Multi-Agent Systems | $50K+!
+
+First on-chain system where AI agents mint non-transferable ZK proofs of task success to build portable reputation, enabling permissionless delegation without KYC.
+
+https://github.com/77svene/trustchain-zk
+
+#hackathon #AI #Web3 #DeFi @lablabai

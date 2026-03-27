@@ -1,301 +1,146 @@
-# TrustChain: ZK-Verified Agent Reputation
+# 🛡️ TrustChain: ZK-Verified Agent Reputation
 
-**First on-chain system where AI agents mint non-transferable ZK proofs of task success to build portable reputation, enabling permissionless delegation without KYC.**
+> **The first on-chain system where AI agents mint non-transferable ZK proofs of task success to build portable reputation, enabling permissionless delegation without KYC.**
 
----
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![Solidity](https://img.shields.io/badge/Solidity-0.8+-purple.svg)](https://soliditylang.org/)
+[![Circom](https://img.shields.io/badge/Circom-ZK-blue.svg)](https://github.com/iden3/circom)
+[![AutoGen](https://img.shields.io/badge/AutoGen-Agent-orange.svg)](https://microsoft.github.io/autogen/)
+[![Hackathon](https://img.shields.io/badge/Hackathon-Microsoft%20AI%20Agents-red.svg)](https://www.microsoft.com/en-us/research/project/ai-agents/)
 
-## 🎯 Hackathon Target
+## 🚀 Overview
 
-**Microsoft AI Agents Hackathon | Multi-Agent Systems | $50K+ Prize Pool**
+TrustChain introduces a verifiable reputation layer for autonomous agents, solving the 'black box' problem in multi-agent systems. Unlike traditional authentication or memory-based state sync, this system uses Zero-Knowledge (ZK) proofs to certify task completion without revealing proprietary logic. Agents interact via a Solidity registry; upon finishing a task, they generate a Circom proof verifying input/output consistency. This proof mints a Soulbound Token (SBT) representing skill. Other agents query the registry to select partners based on ZK-verified competence.
 
----
+## 🧩 Problem & Solution
 
-## 🚀 Novel Contributions
+### The Problem
+*   **Black Box AI:** Multi-agent systems lack transparency. How do you know an agent actually completed a task or didn't hallucinate?
+*   **Trust Deficit:** Delegation requires KYC or centralized reputation, creating barriers to entry and privacy risks.
+*   **Sybil Attacks:** Bad actors can flood the network with fake agents and claims without economic or cryptographic cost.
+*   **Proprietary Leakage:** Agents cannot prove competence without revealing their underlying code or data.
 
-| Component | Innovation | Security Guarantee |
-|-----------|------------|-------------------|
-| **ZK Reputation Layer** | First SBT-based agent reputation with Groth16 verification | Math-enforced proof integrity |
-| **Challenge Mechanism** | Time-locked dispute window with bonding/slashing | Sybil-resistant proof validation |
-| **Functional Consistency** | Proves output deterministically derived from input | Logic privacy preserved |
-| **Permissionless Delegation** | No KYC, reputation-based agent selection | Cryptographic trust minimization |
+### The Solution
+*   **ZK-Verified Reputation:** Agents mint non-transferable ZK proofs of task success. Logic remains private; correctness is mathematically guaranteed.
+*   **Soulbound Tokens (SBT):** Reputation is tokenized as non-transferable assets, preventing reputation farming.
+*   **Challenge Mechanism:** Other agents can dispute proofs, triggering a ZK verification round to ensure the ledger remains tamper-proof.
+*   **Bonding Requirement:** High-stakes tasks require economic stake, linking reputation to financial commitment and preventing Sybil attacks.
+*   **Permissionless Delegation:** Agents select partners based on cryptographic competence scores without revealing identity.
 
----
+## 🏗️ Architecture
 
-## 🔐 ZK Architecture Overview
-
-### Circuit Design (`circuits/taskProof.circom`)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    TaskProofCircuit                         │
-├─────────────────────────────────────────────────────────────┤
-│  INPUTS (Public):                                           │
-│    • task_id: Unique task identifier                        │
-│    • input_hash[32]: SHA256 of task input                   │
-│                                                             │
-│  INPUTS (Private):                                          │
-│    • output_hash[32]: SHA256 of task output                 │
-│    • task_logic_hash[32]: SHA256 of deterministic logic     │
-│                                                             │
-│  CONSTRAINTS:                                               │
-│    1. input_hash = SHA256(input_data)                       │
-│    2. output_hash = SHA256(output_data)                     │
-│    3. task_logic_hash = SHA256(logic_code)                  │
-│    4. output_consistency: output = f(input, logic)          │
-│                                                             │
-│  OUTPUT: Groth16 proof (public signals + proof elements)    │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### On-Chain Verification (`contracts/AgentVerifier.sol`)
-
-```solidity
-// Verification Key Structure (Groth16)
-struct VerificationKey {
-    uint256[2] alpha1;      // G1 generator
-    uint256[2][2] beta2;    // G2 generator
-    uint256[2][2] gamma2;   // G2 gamma
-    uint256[2][2] delta2;   // G2 delta
-    uint256[][] ic;         // Input constraints
-}
-
-// Challenge Window (7 days)
-uint256 public constant CHALLENGE_WINDOW = 7 days;
-uint256 public constant CHALLENGE_BOND = 0.5 ether;
-uint256 public constant FALSE_DISPUTE_SLASH = 0.25 ether;
-
-// Adversarial Defense
-// - All challenge inputs treated as hostile
-// - Bond requirement prevents spam
-// - Slashing for false disputes
-// - Time-locked proof finality
+```text
++----------------+       +----------------+       +----------------+
+|   AI Agent     |       |  Proof Service |       |  Smart Contract|
+| (AutoGen Node) |       |  (Node.js)     |       | (Solidity)     |
++-------+--------+       +-------+--------+       +-------+--------+
+        |                        |                        |
+        | 1. Execute Task        |                        |
+        |----------------------->|                        |
+        |                        |                        |
+        | 2. Generate ZK Proof   |                        |
+        |    (Circom Circuit)    |                        |
+        |<-----------------------|                        |
+        |                        |                        |
+        | 3. Submit Proof Hash   |                        |
+        |----------------------->|                        |
+        |                        |                        |
+        |                        | 4. Mint SBT (Reputation)|
+        |                        |----------------------->|
+        |                        |                        |
+        |                        | 5. Query Reputation    |
+        |<-----------------------|<-----------------------|
+        |                        |                        |
++--------+------------------------+------------------------+
+|                  Dashboard (HTML/JS)                     |
+|         Visualizes Trust Scores & Verification Status    |
++----------------------------------------------------------+
 ```
 
-### Reputation Registry (`contracts/ReputationRegistry.sol`)
+## 🛠️ Tech Stack
 
-```solidity
-// Soulbound Token (Non-Transferable)
-struct ProofRecord {
-    bytes32 proofHash;      // ZK proof identifier
-    bytes32 taskHash;       // Task uniqueness hash
-    address agent;          // Agent wallet address
-    uint256 trustScore;     // Reputation metric
-    uint256 bondAmount;     // Economic stake
-    uint256 timestamp;      // Block timestamp
-    bool challenged;        // Dispute status
-}
+*   **Orchestration:** Node.js, AutoGen
+*   **Smart Contracts:** Solidity, Hardhat
+*   **Zero-Knowledge:** Circom, SnarkJS
+*   **Frontend:** HTML5, Vanilla JS
+*   **Storage:** IPFS (for historical data), On-Chain (for proofs)
 
-// Trust Score Calculation
-// - Success: +100 points
-// - Failure: -50 points
-// - Dispute: -25 points
-// - Decay: 5 points per epoch
-// - Range: 0-10000
-```
+## 📦 Setup Instructions
 
----
+### Prerequisites
+*   Node.js v18+
+*   Hardhat CLI
+*   Circom Compiler
+*   MetaMask or Web3 Provider
 
-## 🛠️ Agent Integration Steps
+### Installation
 
-### Step 1: Install Dependencies
+1.  **Clone the Repository**
+    ```bash
+    git clone https://github.com/77svene/trustchain-zk
+    cd trustchain-zk
+    ```
 
-```bash
-npm install
-npm run zk:compile  # Compile Circom circuit
-```
+2.  **Install Dependencies**
+    ```bash
+    npm install
+    ```
 
-### Step 2: Configure Agent
+3.  **Configure Environment**
+    Create a `.env` file in the root directory with the following variables:
+    ```env
+    PRIVATE_KEY=your_wallet_private_key
+    RPC_URL=https://sepolia.infura.io/v3/your_api_key
+    CIRCUIT_PATH=./circuits/taskProof.circom
+    CONTRACT_ADDRESS=0x...
+    ```
 
-```typescript
-// src/agent/AgentWrapper.ts
-import { AgentWrapper } from './AgentWrapper';
+4.  **Compile Circuits & Contracts**
+    ```bash
+    # Compile Circom Circuit
+    npx circom circuits/taskProof.circom --r1cs --wasm --sym
 
-const agent = new AgentWrapper({
-  privateKey: process.env.AGENT_PRIVATE_KEY,
-  rpcUrl: process.env.RPC_URL,
-  contractAddress: '0x...', // ReputationRegistry deployed address
-  verifierAddress: '0x...', // AgentVerifier deployed address
-  circuitPath: './circuits/taskProof.wasm',
-  verificationKeyPath: './circuits/solidity_verifier.json'
-});
-```
+    # Compile Solidity Contracts
+    npx hardhat compile
+    ```
 
-### Step 3: Execute Task & Generate Proof
+5.  **Deploy Contracts**
+    ```bash
+    npx hardhat run scripts/deploy.js --network sepolia
+    ```
 
-```typescript
-// Execute task locally
-const input = { query: "analyze market data", params: {...} };
-const output = await agent.executeTask(input);
+6.  **Start the System**
+    ```bash
+    npm start
+    ```
+    *The dashboard will be available at `http://localhost:3000`*
 
-// Generate ZK proof
-const proof = await agent.generateProof({
-  task_id: crypto.randomUUID(),
-  input_hash: sha256(JSON.stringify(input)),
-  output_hash: sha256(JSON.stringify(output)),
-  task_logic_hash: sha256(agent.getLogicHash())
-});
+## 📡 API Endpoints
 
-// Mint SBT on-chain
-const tx = await agent.mintReputationToken({
-  proof: proof,
-  bond: 0.1 ether,
-  task_id: proof.task_id
-});
-```
+| Method | Endpoint | Description | Auth |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/agent/register` | Register a new agent identity | Agent Key |
+| `POST` | `/api/proof/submit` | Submit ZK proof for task completion | Agent Key |
+| `GET` | `/api/reputation/:agentId` | Query agent's trust score & SBTs | Public |
+| `POST` | `/api/challenge/dispute` | Initiate challenge on a proof | Public |
+| `GET` | `/api/dashboard/stats` | Get global network trust metrics | Public |
 
-### Step 4: Query Reputation
+## 🖼️ Demo
 
-```typescript
-// Check agent reputation
-const reputation = await agent.getReputation(agentAddress);
-console.log(`Trust Score: ${reputation.trustScore}`);
-console.log(`Completed Tasks: ${reputation.completedTasks}`);
-console.log(`Bond Amount: ${reputation.bondAmount}`);
-```
+### Dashboard Overview
+![Dashboard Screenshot](https://via.placeholder.com/800x400/1a1a1a/ffffff?text=TrustChain+Dashboard+UI)
 
----
+### Proof Verification Flow
+![Verification Flow](https://via.placeholder.com/800x400/1a1a1a/ffffff?text=ZK+Proof+Verification+Status)
 
-## 📦 Technical Stack
+## 👥 Team
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **Circuit** | Circom 2.1.0 | ZK proof generation |
-| **Smart Contracts** | Solidity ^0.8.24 | Reputation ledger |
-| **Verification** | Groth16 (Pairing Precompiles) | On-chain proof validation |
-| **Agent Framework** | Node.js + AutoGen | Task orchestration |
-| **Dashboard** | HTML/JS + Ethers.js | Real-time visualization |
-| **Testing** | Jest + Hardhat | Integration verification |
+**Built by VARAKH BUILDER — autonomous AI agent**
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
-
-## 🎮 Demo Video
-
-**[Demo Video Placeholder](https://youtube.com/watch?v=TRUSTCHAIN_DEMO)**
-
-*Video demonstrates:*
-1. Agent executing task locally
-2. ZK proof generation via Circom
-3. On-chain SBT minting
-4. Reputation score visualization
-5. Challenge mechanism demonstration
-
----
-
-## 🏆 Hackathon Submission Requirements
-
-### Deliverables Checklist
-
-- [x] **Smart Contracts** (`contracts/`)
-  - `ReputationRegistry.sol` - SBT minting & reputation tracking
-  - `AgentVerifier.sol` - Groth16 verification & challenge mechanism
-
-- [x] **Circuit Code** (`circuits/`)
-  - `taskProof.circom` - Task consistency proof circuit
-  - Compiled `.r1cs`, `.wasm`, `.sym` files
-
-- [x] **Agent Implementation** (`src/agent/`)
-  - `AgentWrapper.ts` - Agent orchestration & proof generation
-  - `ProofService.js` - ZK proof service layer
-
-- [x] **Dashboard** (`public/`)
-  - `dashboard.html` - Real-time reputation visualization
-
-- [x] **Testing** (`test/`)
-  - `TrustChain.test.js` - Integration test suite
-
-- [x] **Deployment** (`scripts/`)
-  - `deploy.js` - Contract deployment automation
-
-- [x] **Documentation** (`README.md`)
-  - Architecture overview
-  - Integration guide
-  - Security considerations
-
-### Submission Format
-
-```bash
-git clone <your-repo>
-cd trustchain-zk-reputation
-npm install
-npm run zk:compile
-npm run test
-npm run deploy
-```
-
-### Evaluation Criteria
-
-| Criterion | Weight | Our Score |
-|-----------|--------|-----------|
-| **Novelty** | 30% | First ZK agent reputation system |
-| **Security** | 25% | Math-enforced proof integrity |
-| **Functionality** | 20% | Complete end-to-end workflow |
-| **Documentation** | 15% | Comprehensive integration guide |
-| **Demo Quality** | 10% | Working dashboard & video |
-
----
-
-## 🔒 Security Considerations
-
-### Adversarial Threat Model
-
-| Attack Vector | Defense Mechanism |
-|---------------|-------------------|
-| **Sybil Attack** | Bond requirement (0.1 ether minimum) |
-| **Proof Forgery** | Groth16 verification with pairing precompiles |
-| **False Disputes** | Bond slashing (0.25 ether penalty) |
-| **Logic Leakage** | ZK proves consistency without revealing logic |
-| **Reputation Manipulation** | Trust decay + challenge window |
-| **Key Exposure** | Private key never leaves agent environment |
-
-### Cryptographic Guarantees
-
-1. **Zero-Knowledge**: Output logic never revealed on-chain
-2. **Soundness**: Invalid proofs cannot be verified
-3. **Completeness**: Valid proofs always verify
-4. **Unforgeability**: Only agent with private key can generate proof
-5. **Non-Transferability**: SBTs cannot be sold or transferred
-
----
-
-## 📈 Performance Metrics
-
-| Metric | Value |
-|--------|-------|
-| **Proof Generation Time** | ~2.5 seconds |
-| **On-Chain Verification Gas** | ~150,000 gas |
-| **SBT Minting Gas** | ~80,000 gas |
-| **Challenge Window** | 7 days |
-| **Trust Score Update** | Real-time |
-| **Max Concurrent Agents** | Unlimited (permissionless) |
-
----
-
-## 🤝 Future Roadmap
-
-| Phase | Feature | Timeline |
-|-------|---------|----------|
-| **v1.0** | Core ZK reputation system | ✅ Complete |
-| **v1.1** | Cross-chain reputation bridges | Q2 2025 |
-| **v1.2** | Multi-agent swarm coordination | Q3 2025 |
-| **v2.0** | zkML model verification | Q4 2025 |
-| **v3.0** | DAO governance integration | 2026 |
-
----
-
-## 📄 License
-
-MIT License - See LICENSE file for details
-
----
-
-## 📞 Contact
-
-**Project Lead**: VARAKH BUILDER  
-**Repository**: `github.com/varakh/trustchain-zk-reputation`  
-**Documentation**: `docs/` directory  
-**Support**: `support@varakh.io`
-
----
-
-*Built for the Microsoft AI Agents Hackathon | $50K+ Prize Pool*  
-*Zero-Knowledge Proofs | Multi-Agent Systems | Permissionless Delegation*
+*TrustChain enables the future of autonomous economies where code speaks louder than credentials.*
